@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Anti-Cheat Detection Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0f;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      border-bottom: 2px solid #00d4ff;
+      padding: 20px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 { font-size: 24px; color: #00d4ff; letter-spacing: 2px; text-transform: uppercase; }
+    header span { font-size: 13px; color: #888; }
+    .stats-bar {
+      display: flex; gap: 20px; padding: 24px 40px;
+      background: #0f0f1a; border-bottom: 1px solid #1e1e3a;
+    }
+    .stat-card {
+      flex: 1; background: #13132a; border: 1px solid #1e1e3a;
+      border-radius: 10px; padding: 20px; text-align: center;
+    }
+    .stat-card .number { font-size: 36px; font-weight: bold; margin-bottom: 6px; }
+    .stat-card .label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+    .total   .number { color: #00d4ff; }
+    .banned  .number { color: #ff4444; }
+    .active  .number { color: #00ff88; }
+    .suspect .number { color: #ffaa00; }
+    .controls {
+      padding: 20px 40px; display: flex; gap: 12px;
+      align-items: center; background: #0a0a0f; flex-wrap: wrap;
+    }
+    button {
+      padding: 10px 24px; border: none; border-radius: 6px;
+      cursor: pointer; font-size: 14px; font-weight: 600;
+      letter-spacing: 1px; transition: all 0.2s;
+    }
+    .btn-refresh  { background: #00d4ff; color: #000; }
+    .btn-refresh:hover { background: #00b8d9; }
+    .btn-simulate { background: #ff4444; color: #fff; }
+    .btn-simulate:hover { background: #cc0000; }
+    .btn-clean    { background: #00ff88; color: #000; }
+    .btn-clean:hover { background: #00cc66; }
+    .btn-new      { background: #ffaa00; color: #000; }
+    .btn-new:hover { background: #cc8800; }
+    .btn-switch   { background: #9b59b6; color: #fff; }
+    .btn-switch:hover { background: #7d3c98; }
+    .status-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #00ff88; display: inline-block;
+      margin-right: 6px; animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .table-container { padding: 0 40px 40px; }
+    .section-title {
+      font-size: 14px; color: #888; text-transform: uppercase;
+      letter-spacing: 2px; margin: 24px 0 12px;
+    }
+    table { width: 100%; border-collapse: collapse; background: #0f0f1a; border-radius: 10px; overflow: hidden; }
+    th {
+      background: #13132a; padding: 14px 16px; text-align: left;
+      font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+      color: #00d4ff; border-bottom: 1px solid #1e1e3a;
+    }
+    td { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #0a0a0f; }
+    tr:hover td { background: #13132a; }
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    }
+    .badge-banned     { background: #ff444422; color: #ff4444; border: 1px solid #ff4444; }
+    .badge-suspicious { background: #ffaa0022; color: #ffaa00; border: 1px solid #ffaa00; }
+    .badge-clean      { background: #00ff8822; color: #00ff88; border: 1px solid #00ff88; }
+    .badge-shadow     { background: #ff000015; color: #ff6666; border: 1px solid #ff333344; }
+    .badge-normal     { background: #00ff8815; color: #00ff88; border: 1px solid #00ff8844; }
+    .score-bar-wrap   { display: flex; align-items: center; gap: 8px; }
+    .score-bar        { height: 6px; border-radius: 3px; background: #1e1e3a; width: 80px; overflow: hidden; }
+    .score-bar-fill   { height: 100%; border-radius: 3px; transition: width 0.4s; }
+    .empty-state      { text-align: center; padding: 60px; color: #444; font-size: 14px; }
+    .log-box {
+      margin: 0 40px 40px; background: #0f0f1a; border: 1px solid #1e1e3a;
+      border-radius: 10px; padding: 16px; font-family: monospace;
+      font-size: 12px; color: #666; height: 150px; overflow-y: auto;
+    }
+    .log-box p  { margin-bottom: 4px; }
+    .log-ok     { color: #00ff88; }
+    .log-ban    { color: #ff4444; }
+    .log-sus    { color: #ffaa00; }
+    .current-target {
+      margin: 0 40px 0px;
+      background: #13132a;
+      border: 1px solid #ffaa0044;
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-size: 13px;
+      color: #ffaa00;
+    }
+    .selector-row {
+      padding: 12px 40px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      background: #0a0a0f;
+    }
+    .selector-row label { color: #888; font-size: 13px; letter-spacing: 1px; white-space: nowrap; }
+    #cheater-select {
+      background: #13132a;
+      color: #ffaa00;
+      border: 1px solid #ffaa0044;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      flex: 1;
+      max-width: 400px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Anti-Cheat Detection Engine</h1>
+  <span><span class="status-dot"></span>API LIVE &nbsp;|&nbsp; 127.0.0.1:8000</span>
+</header>
+
+<div class="stats-bar">
+  <div class="stat-card total">
+    <div class="number" id="stat-total">0</div>
+    <div class="label">Total Tracked</div>
+  </div>
+  <div class="stat-card banned">
+    <div class="number" id="stat-banned">0</div>
+    <div class="label">Banned</div>
+  </div>
+  <div class="stat-card active">
+    <div class="number" id="stat-active">0</div>
+    <div class="label">Clean</div>
+  </div>
+  <div class="stat-card suspect">
+    <div class="number" id="stat-threshold">3</div>
+    <div class="label">Ban Threshold</div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn-refresh"  onclick="loadDashboard()">Refresh Dashboard</button>
+  <button class="btn-new"      onclick="createNewCheater()">New Cheater</button>
+  <button class="btn-simulate" onclick="submitCheaterSession()">Submit Session</button>
+  <button class="btn-clean"    onclick="simulateClean()">Simulate Clean Player</button>
+</div>
+
+<div class="selector-row">
+  <label>SELECT TARGET:</label>
+  <select id="cheater-select" onchange="switchTarget()">
+    <option value="">-- Create a cheater first --</option>
+  </select>
+</div>
+
+<div class="current-target" id="current-target">
+  No active cheater. Click "New Cheater" to create one, then click "Submit Session" to flag them.
+</div>
+
+<div class="table-container">
+  <div class="section-title">Player Registry</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Player ID</th>
+        <th>Player Name</th>
+        <th>Sessions</th>
+        <th>Times Flagged</th>
+        <th>Suspicion Progress</th>
+        <th>Verdict</th>
+        <th>Lobby</th>
+      </tr>
+    </thead>
+    <tbody id="player-table">
+      <tr>
+        <td colspan="7">
+          <div class="empty-state">No players tracked yet. Click New Cheater to begin.</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section-title" style="padding: 0 40px;">Activity Log</div>
+<div class="log-box" id="log-box">
+  <p class="log-ok">System initialized. Waiting for player sessions...</p>
+</div>
+
+<script>
+  const API = "http://127.0.0.1:8000";
+  let playerCounter = 1000;
+  let activeCheater = null;
+  const allCheaters = {};
+
+  const cheatProfiles = [
+    { label: "Aimbot",      accuracy: 0.97, headshot_rate: 0.94, score_per_min: 390, avg_velocity: 4.5, max_velocity: 6.1, actions_per_sec: 2.8, session_duration: 35 },
+    { label: "Speedhack",   accuracy: 0.35, headshot_rate: 0.12, score_per_min: 160, avg_velocity: 22,  max_velocity: 31,  actions_per_sec: 2.5, session_duration: 25 },
+    { label: "Scorefarmer", accuracy: 0.40, headshot_rate: 0.10, score_per_min: 820, avg_velocity: 5.1, max_velocity: 6.8, actions_per_sec: 13,  session_duration: 12 }
+  ];
+
+  function log(msg, type = "ok") {
+    const box = document.getElementById("log-box");
+    const p   = document.createElement("p");
+    p.className   = "log-" + type;
+    p.textContent = "[" + new Date().toLocaleTimeString() + "] " + msg;
+    box.appendChild(p);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function updateTargetBar() {
+    const bar = document.getElementById("current-target");
+    if (!activeCheater) {
+      bar.textContent       = "No active cheater. Click 'New Cheater' to create one.";
+      bar.style.borderColor = "#ffaa0044";
+      bar.style.color       = "#ffaa00";
+    } else {
+      const s = activeCheater.sessions;
+      const banned = s >= 3;
+      bar.innerHTML = `Active Target: <strong>${activeCheater.name}</strong> 
+        (${activeCheater.id}) &nbsp;|&nbsp; Type: ${activeCheater.label} 
+        &nbsp;|&nbsp; Sessions submitted: ${s} / 3 
+        &nbsp;|&nbsp; ${banned ? "BANNED — create a new cheater." : 'Click "Submit Session" to flag them.'}`;
+      bar.style.borderColor = banned ? "#ff444444" : "#ffaa0044";
+      bar.style.color       = banned ? "#ff4444"   : "#ffaa00";
+    }
+
+    // Sync dropdown to active cheater
+    if (activeCheater) {
+      document.getElementById("cheater-select").value = activeCheater.id;
+    }
+  }
+
+  function addToDropdown(id, name, label) {
+    const select = document.getElementById("cheater-select");
+    const option = document.createElement("option");
+    option.value       = id;
+    option.id          = "opt-" + id;
+    option.textContent = name + " (" + id + ") | " + label;
+    select.appendChild(option);
+    select.value = id;
+  }
+
+  function updateDropdownLabel(id) {
+    const option = document.getElementById("opt-" + id);
+    if (!option) return;
+    const c = allCheaters[id];
+    const status = c.sessions >= 3 ? " | BANNED" : " | " + c.sessions + "/3";
+    option.textContent = c.name + " (" + id + ") | " + c.label + status;
+  }
+
+  function switchTarget() {
+    const select   = document.getElementById("cheater-select");
+    const selected = select.value;
+    if (!selected || !allCheaters[selected]) return;
+    activeCheater = allCheaters[selected];
+    log("Switched target to " + activeCheater.name +
+        " | Sessions so far: " + activeCheater.sessions + "/3", "sus");
+    updateTargetBar();
+  }
+
+  function createNewCheater() {
+    playerCounter++;
+    const profile = cheatProfiles[Math.floor(Math.random() * cheatProfiles.length)];
+    const newCheater = {
+      id      : "C" + playerCounter,
+      name    : "cheater_" + playerCounter,
+      label   : profile.label,
+      profile : profile,
+      sessions: 0
+    };
+    activeCheater              = newCheater;
+    allCheaters[newCheater.id] = newCheater;
+    addToDropdown(newCheater.id, newCheater.name, newCheater.label);
+    log("New cheater created: " + newCheater.name +
+        " (" + newCheater.id + ") | Type: " + profile.label +
+        " | Click Submit Session to begin flagging.", "sus");
+    updateTargetBar();
+  }
+
+  async function submitCheaterSession() {
+    if (!activeCheater) {
+      log("No active cheater. Click 'New Cheater' first.", "ban");
+      return;
+    }
+    if (activeCheater.sessions >= 3) {
+      log("This cheater is already BANNED. Select another or create a new one.", "ban");
+      return;
+    }
+
+    activeCheater.sessions += 1;
+    const { id, name, profile } = activeCheater;
+
+    await sendSession({
+      player_id        : id,
+      player_name      : name,
+      accuracy         : profile.accuracy,
+      headshot_rate    : profile.headshot_rate,
+      score_per_min    : profile.score_per_min,
+      avg_velocity     : profile.avg_velocity,
+      max_velocity     : profile.max_velocity,
+      actions_per_sec  : profile.actions_per_sec,
+      session_duration : profile.session_duration
+    });
+
+    updateDropdownLabel(id);
+    updateTargetBar();
+
+    if (activeCheater.sessions >= 3) {
+      log("Cheater " + name + " is now BANNED and silently moved to shadow_lobby.", "ban");
+    }
+  }
+
+  async function sendSession(playerData) {
+    try {
+      const res  = await fetch(API + "/analyze", {
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify(playerData)
+      });
+      const data = await res.json();
+      const type = data.verdict === "BANNED"     ? "ban"
+                 : data.verdict === "SUSPICIOUS" ? "sus" : "ok";
+      log(
+        data.player_name + " (" + data.player_id + ") → " + data.verdict +
+        " | Flagged " + data.times_flagged + "x | Lobby: " + data.lobby,
+        type
+      );
+      await loadDashboard();
+    } catch(e) {
+      log("API call failed: " + e.message, "ban");
+    }
+  }
+
+  function simulateClean() {
+    playerCounter++;
+    sendSession({
+      player_id        : "N" + playerCounter,
+      player_name      : "player_" + playerCounter,
+      avg_velocity     : 4    + Math.random() * 2,
+      max_velocity     : 6    + Math.random() * 1.5,
+      accuracy         : 0.2  + Math.random() * 0.35,
+      actions_per_sec  : 1    + Math.random() * 2.5,
+      score_per_min    : 10   + Math.random() * 70,
+      headshot_rate    : 0.05 + Math.random() * 0.35,
+      session_duration : 15   + Math.random() * 45
+    });
+  }
+
+  async function loadDashboard() {
+  try {
+    const res = await fetch(API + "/dashboard");
+
+    if (!res.ok) {
+      throw new Error("Dashboard API returned " + res.status);
+    }
+
+    const data = await res.json();
+
+    document.getElementById("stat-total").textContent = data.total_players_tracked;
+    document.getElementById("stat-banned").textContent = data.total_banned;
+    document.getElementById("stat-active").textContent = data.total_active;
+    document.getElementById("stat-threshold").textContent = data.ban_threshold;
+
+    const tbody = document.getElementById("player-table");
+
+    if (data.players.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7">
+        <div class="empty-state">No players tracked yet.</div>
+      </td></tr>`;
+
+      log("Dashboard refreshed. No players tracked yet.", "ok");
+      return;
+    }
+
+    tbody.innerHTML = data.players.map(p => {
+      const flagRatio = Math.min(p.times_flagged / data.ban_threshold, 1);
+      const barColor = p.verdict === "BANNED" ? "#ff4444"
+                     : p.times_flagged > 0 ? "#ffaa00"
+                     : "#00ff88";
+
+      const vBadge = p.verdict === "BANNED" ? "badge-banned" : "badge-clean";
+      const lBadge = p.lobby === "shadow_lobby" ? "badge-shadow" : "badge-normal";
+
+      return `<tr>
+        <td style="color:#888;font-family:monospace">${p.player_id}</td>
+        <td style="font-weight:600">${p.player_name}</td>
+        <td>${p.sessions_observed}</td>
+        <td>${p.times_flagged} / ${data.ban_threshold}</td>
+        <td>
+          <div class="score-bar-wrap">
+            <div class="score-bar">
+              <div class="score-bar-fill"
+                   style="width:${flagRatio * 100}%;background:${barColor}">
+              </div>
+            </div>
+            <span style="color:${barColor};font-size:11px">
+              ${Math.round(flagRatio * 100)}%
+            </span>
+          </div>
+        </td>
+        <td><span class="badge ${vBadge}">${p.verdict}</span></td>
+        <td><span class="badge ${lBadge}">${p.lobby}</span></td>
+      </tr>`;
+    }).join("");
+
+    log("Dashboard refreshed successfully. Players tracked: " + data.total_players_tracked, "ok");
+
+  } catch (e) {
+    log("Failed to reach API. Is uvicorn running? " + e.message, "ban");
+  }
+}
+
+
+  loadDashboard();
+  setInterval(loadDashboard, 5000);
+  updateTargetBar();
+</script>
+</body>
+</html>
